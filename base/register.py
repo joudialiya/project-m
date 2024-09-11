@@ -1,14 +1,15 @@
-from bitwise_alu_operations import *
+from base.bitwise_alu_operations import *
 
 class RegisterFile:
     def __init__(self) -> None:
         self.dict = {
-            "A": 0, "F": 0,
-            "B": 0, "C": 0,
-            "D": 0, "E": 0,
-            "H": 0, "L": 0,
-            "SP": 0,
-            "PC": 0x100
+            "A": 0x01, "F": 0xB0,
+            "B": 0x00, "C": 0x13,
+            "D": 0x00, "E": 0xD8,
+            "H": 0x01, "L": 0x4D,
+            "SP": 0xFFFE,
+            "PC": 0x0100,
+            "W": 0, "Z": 0
         }
     def read(self, reg: str):
         if reg == "PC" or reg == "SP" or len(reg) == 1:
@@ -20,10 +21,18 @@ class RegisterFile:
         if reg == "PC" or reg == "SP" or len(reg) == 1:
             self.dict[reg] = value
             return
-        high, low = reg
-        self.dict[high], self.dict[low] = high_low_d16(value) 
-    def print(self):
-        print("=========================")
-        for key, value in self.dict.items():
-            print("{}: {:02X} ({}) ({:b})".format(key, value, value, value))
-        print("=========================")
+
+        high, low = reg[0], reg[1]
+        if reg[1] == "F":
+            self.dict[high], self.dict[low] = high_low_d16(value)[0], value & 0xF0 
+        else:
+            self.dict[high], self.dict[low] = high_low_d16(value) 
+    def __repr__(self):
+        strings = ["{}: ".format(key) +
+                   ("{:08b}" if key == "F" 
+                    else "{:02X}" if len(key) == 1 
+                    else "{:04X}")
+                    .format(value)
+                   for key, value in self.dict.items()]
+        return strings
+

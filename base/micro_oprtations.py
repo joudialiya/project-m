@@ -1,147 +1,138 @@
-from bitwise_alu_operations import *
-from register import RegisterFile
+from base.bitwise_alu_operations import *
+from base.register import RegisterFile
 
 class MicroOp:
     def __init__(self, cycle) -> None:
         self.cycle = cycle
         pass
-    def proceed(self, registerFile, memory, context):
+    def proceed(self, cpu, context):
         return True
-    def execute(self, registerFile, memory, context):
+    def execute(self, cpu, context):
         pass
+class EnableDisableIME(MicroOp):
+    def __init__(self, state) -> None:
+        self.state = state
+        super().__init__(1)
+    def proceed(self, cpu, context):
+        return True
+    def execute(self, cpu, context):
+        if self.state:
+            cpu.interrupt_context.setEnabling(True)
+        else:
+            cpu.interrupt_context.setIME(False)
+        return context
 class Condition(MicroOp):
     def __init__(self, condition) -> None:
         self.condition = condition
         super().__init__(0)
-    def proceed(self, registerFile, memory, context):
+    def execute(self, cpu, context):
+        return context
+    def proceed(self, cpu, context):
+        flags = cpu.registerFile.read("F")
         match self.condition:
             case "NZ":
-                flags = registerFile.read("F")
-                if (flags >> Z) & 1:
-                    return False
-                return True
+                return not ((flags >> Z) & 1)
             case "Z":
-                flags = registerFile.read("F")
-                if (flags >> Z) & 1:
-                    return True
-                return False
+                return (flags >> Z) & 1
             case "NC":
-                flags = registerFile.read("F")
-                if (flags >> C) & 1:
-                    return False
-                return True
+                return not ((flags >> C) & 1)
             case "C":
-                flags = registerFile.read("F")
-                if (flags >> Z) & 1:
-                    return True
-                return False
+                return (flags >> C) & 1
 class StoreInRegister(MicroOp):
     def __init__(self, register) -> None:
         self.register = register
         super().__init__(1)
-    def execute(self, registerFile, memory, context):
-        print("== Store register ({}) (value: {}) ==".format(self.register, context))
-        registerFile.write(self.register, context)
+    def execute(self, cpu, context):
+        cpu.registerFile.write(self.register, context)
         return None
+
 class StoreLowerByteInRegisterMemoryAddr(MicroOp):
     def __init__(self, registrer) -> None:
         self.register = registrer
         super().__init__(1)
-    def execute(self, registerFile, memory, context):
-        addr = registerFile.read(self.register)
-        memory.write(addr, force_d8(context))
-        print("== Store to memory address ({}) (addr={}, value={}) =="
-              .format(self.register, addr, context))
-        return None
+    def execute(self, cpu, context):
+        addr = cpu.registerFile.read(self.register)
+        cpu.memory.write(addr, force_d8(context))
+        # print("{:02X} in {:04X}".format(force_d8(context), addr))
+        return context
 class StoreHigherByteInRegisterMemoryAddr(MicroOp):
     def __init__(self, registrer) -> None:
         self.register = registrer
         super().__init__(1)
-    def execute(self, registerFile, memory, context):
-        addr = registerFile.read(self.register)
-        memory.write(addr, force_d8(context >> 8))
-        print("== Store to memory address ({}) (addr={}, value={}) =="
-              .format(self.register, addr, context))
-        return None
+    def execute(self, cpu, context):
+        addr = cpu.registerFile.read(self.register)
+        cpu.memory.write(addr, force_d8(context >> 8))
+        # print("{:02X}".format(force_d8(context >> 8)))
+        return context
 class StoreRegisterIntoAddr(MicroOp):
     def __init__(self, register) -> None:
         self.register = register
         super().__init__(1)
-    def execute(self, registerFile, memory, context):
-        value = registerFile.read(self.register)
-        memory.write(context, value)
-        print("== Store register into addr({}) (value: {}) ==".format(self.register, context))
+    def execute(self, cpu, context):
+        value = cpu.registerFile.read(self.register)
+        cpu.memory.write(context, value)
         return None
 
 class LoadImmediate(MicroOp):
     def __init__(self, imm) -> None:
         self.imm = imm
-        super().__init__(1)
-    def execute(self, registerFile, memory, context):
+        super().__init__(0)
+    def execute(self, cpu, context):
         return self.imm
 class LoadFromRegister(MicroOp):
     def __init__(self, register) -> None:
         self.register = register
-        super().__init__(1)
-    def execute(self, registerFile, memory, context):
-        value = registerFile.read(self.register)
+        super().__init__(0)
+    def execute(self, cpu, context):
+        value = cpu.registerFile.read(self.register)
         return value
-class LoadFromRegistrerMemoryAddr(MicroOp):
+class LoadFromRegisterMemoryAddr(MicroOp):
     def __init__(self, register) -> None:
         self.register = register
-        super().__init__(1)
-    def execute(self, registerFile: RegisterFile, memory, context):
-        addr = registerFile.read(self.register)
-        value = memory.read(addr)
-
-        if context is None:
-            context = value
-        else:
-            context = force_d8(context) | (value << 8)
-        
-        print("== Load from memory address ({}) (addr={}, value={}) =="
-              .format(self.register, addr, value))
-        return context
+        super().__init__(0)
+    def execute(self, cpu, context):
+        addr = cpu.registerFile.read(self.register)
+        value = cpu.memory.read(addr)
+        # print("Load from {:04X} value {:02X}".format(addr, value))
+        return value
 class LoadOperand(MicroOp):
-    def __init__(self) -> None:
-        super().__init__(1)
-    def execute(self, registerFile: RegisterFile, memory, context):
-        addr = registerFile.read("PC")
-        value = memory.read(addr)
-        if context is None:
-            context = value
-        else:
-            context = force_d8(context) | (value << 8)
-        registerFile.write("PC", addr + 1)
-        print("== Load from memory address ({}) (addr={:02X}, value={:02X}) =="
-              .format("PC", addr, value))
+    def __init__(self,) -> None:
+        super().__init__(0)
+    def execute(self, cpu, context):
+        addr = cpu.registerFile.read("PC")
+        value = cpu.memory.read(addr)
+        # print("addr {:04X} value {:02X}".format(addr, value))
+        context = force_d8(value)
+
+        cpu.registerFile.write("PC", addr + 1)
         return context
 class IncR16Registrer(MicroOp):
     def __init__(self, registrer) -> None:
         self.registrer = registrer
         super().__init__(1)
-    def execute(self, registerFile, memory, context):
-        number = registerFile.read(self.registrer)
+    def execute(self, cpu, context):
+        number = cpu.registerFile.read(self.registrer)
         result, flags = add_r16(number, 1, 0)
-        registerFile.write(self.registrer, result)
-        registerFile.write("F", flags)
-        return None
+        cpu.registerFile.write(self.registrer, result)
+        return context
 class DecR16Registrer(MicroOp):
     def __init__(self, registrer) -> None:
         self.registrer = registrer
         super().__init__(1)
-    def execute(self, registerFile, memory, context):
-        number = registerFile.read(self.registrer)
+    def execute(self, cpu, context):
+        number = cpu.registerFile.read(self.registrer)
         result, flags = sub_r16(number, 1, 0)
-        registerFile.write(self.registrer, result)
-        registerFile.write("F", flags)
-        return None
+        cpu.registerFile.write(self.registrer, result)
+        return context
 
 def getAluUnaryOperationCallback(alu):
     match alu:
         case "rl": return rl_r8
+        case "rla": return rla_r8
         case "rlc": return rlc_r8
+        case "rlca": return rlca_r8
         case "rr": return rr_r8
+        case "rra": return rra_r8
         case "rrc": return rrc_r8
         case "sla": return sla_r8
         case "sra": return sra_r8
@@ -151,19 +142,31 @@ def getAluUnaryOperationCallback(alu):
         case "scf": return scf
         case "ccf": return ccf
         case "srl": return srl_r8
+        case "rrca": return rrca_r8
+        case "signed": return lambda number, flags: [to_signed_d8(number), flags]
+        case "inc": return inc_r8
+        case "dec": return dec_r8
     raise Exception("{} operation not found in the unary groupe", alu)
 def getAluBinaryOperationCallback(alu):
     match alu:
         case "add_r16": return add_r16
+        case "add_sp": return add_sp
+
         case "add": return add_r8
+        case "adc": return adc_r8
+        
         case "sub": return sub_r8
         case "sbc": return sbc_r8
+        case "cp": return cp_r8
+
         case "or": return or_r8
         case "xor": return xor_r8
         case "and": return and_r8
+
         case "bit": return bit_r8
-        case "set": return bit_r8
+        case "set": return set_r8
         case "res": return res_r8
+          
     raise Exception("{} operation not found in the binary groupe", alu)
 
 # These micro operation sets the context to the result of the alu operation
@@ -176,11 +179,11 @@ class BinaryAluOperationWithImmediate(MicroOp):
         self.set_flags = set_flags
         super().__init__(0)
 
-    def execute(self, registerFile, memory, context):
+    def execute(self, cpu, context):
         callback = getAluBinaryOperationCallback(self.alu)
-        result, flags = callback(context, self.imm, registerFile.read("F"))
+        result, flags = callback(context, self.imm, cpu.registerFile.read("F"))
         if self.set_flags:
-            registerFile.write("F", flags)
+            cpu.registerFile.write("F", flags)
         return result
 class UnaryAluOperationOnContext(MicroOp):
     def __init__(self, alu, set_flags=True) -> None:
@@ -188,11 +191,11 @@ class UnaryAluOperationOnContext(MicroOp):
         self.set_flags = set_flags
         super().__init__(0)
 
-    def execute(self, registerFile, memory, context):
+    def execute(self, cpu, context):
         callback = getAluUnaryOperationCallback(self.alu)
-        result, flags = callback(context, registerFile.read("F"))
+        result, flags = callback(context, cpu.registerFile.read("F"))
         if self.set_flags:
-            registerFile.write("F", flags)
+            cpu.registerFile.write("F", flags)
         return result
 class BinaryAluRegistrerOperation(MicroOp):
     def __init__(self, registrer, alu, set_flags=True) -> None:
@@ -201,10 +204,10 @@ class BinaryAluRegistrerOperation(MicroOp):
         self.set_flags = set_flags
         super().__init__(0)
 
-    def execute(self, registerFile, memory, context):
+    def execute(self, cpu, context):
         callback = getAluBinaryOperationCallback(self.alu)
-        register = registerFile.read(self.register)
-        result, flags = callback(register, context, registerFile.read("F"))
+        register = cpu.registerFile.read(self.register)
+        result, flags = callback(register, context, cpu.registerFile.read("F"))
         if self.set_flags:
-            registerFile.write("F", flags)
+            cpu.registerFile.write("F", flags)
         return result
