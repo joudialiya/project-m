@@ -2,17 +2,15 @@ from base.bitwise_alu_operations import *
 from base.register import RegisterFile
 
 class MicroOp:
-    def __init__(self, cycle) -> None:
-        self.cycle = cycle
-        pass
+    def isAccessingMemory():
+        return False
     def proceed(self, cpu, context):
         return True
     def execute(self, cpu, context):
-        pass
+        return context
 class EnableDisableIME(MicroOp):
     def __init__(self, state) -> None:
         self.state = state
-        super().__init__(1)
     def proceed(self, cpu, context):
         return True
     def execute(self, cpu, context):
@@ -24,7 +22,6 @@ class EnableDisableIME(MicroOp):
 class Condition(MicroOp):
     def __init__(self, condition) -> None:
         self.condition = condition
-        super().__init__(0)
     def execute(self, cpu, context):
         return context
     def proceed(self, cpu, context):
@@ -41,7 +38,6 @@ class Condition(MicroOp):
 class StoreInRegister(MicroOp):
     def __init__(self, register) -> None:
         self.register = register
-        super().__init__(1)
     def execute(self, cpu, context):
         cpu.registerFile.write(self.register, context)
         return None
@@ -49,7 +45,6 @@ class StoreInRegister(MicroOp):
 class StoreLowerByteInRegisterMemoryAddr(MicroOp):
     def __init__(self, registrer) -> None:
         self.register = registrer
-        super().__init__(1)
     def execute(self, cpu, context):
         addr = cpu.registerFile.read(self.register)
         cpu.memory.write(addr, force_d8(context))
@@ -58,7 +53,6 @@ class StoreLowerByteInRegisterMemoryAddr(MicroOp):
 class StoreHigherByteInRegisterMemoryAddr(MicroOp):
     def __init__(self, registrer) -> None:
         self.register = registrer
-        super().__init__(1)
     def execute(self, cpu, context):
         addr = cpu.registerFile.read(self.register)
         cpu.memory.write(addr, force_d8(context >> 8))
@@ -67,7 +61,6 @@ class StoreHigherByteInRegisterMemoryAddr(MicroOp):
 class StoreRegisterIntoAddr(MicroOp):
     def __init__(self, register) -> None:
         self.register = register
-        super().__init__(1)
     def execute(self, cpu, context):
         value = cpu.registerFile.read(self.register)
         cpu.memory.write(context, value)
@@ -76,28 +69,23 @@ class StoreRegisterIntoAddr(MicroOp):
 class LoadImmediate(MicroOp):
     def __init__(self, imm) -> None:
         self.imm = imm
-        super().__init__(0)
     def execute(self, cpu, context):
         return self.imm
 class LoadFromRegister(MicroOp):
     def __init__(self, register) -> None:
         self.register = register
-        super().__init__(0)
     def execute(self, cpu, context):
         value = cpu.registerFile.read(self.register)
         return value
 class LoadFromRegisterMemoryAddr(MicroOp):
     def __init__(self, register) -> None:
         self.register = register
-        super().__init__(0)
     def execute(self, cpu, context):
         addr = cpu.registerFile.read(self.register)
         value = cpu.memory.read(addr)
         # print("Load from {:04X} value {:02X}".format(addr, value))
         return value
 class LoadOperand(MicroOp):
-    def __init__(self,) -> None:
-        super().__init__(0)
     def execute(self, cpu, context):
         addr = cpu.registerFile.read("PC")
         value = cpu.memory.read(addr)
@@ -106,10 +94,10 @@ class LoadOperand(MicroOp):
 
         cpu.registerFile.write("PC", addr + 1)
         return context
+
 class IncR16Registrer(MicroOp):
     def __init__(self, registrer) -> None:
         self.registrer = registrer
-        super().__init__(1)
     def execute(self, cpu, context):
         number = cpu.registerFile.read(self.registrer)
         result, flags = add_r16(number, 1, 0)
@@ -118,7 +106,6 @@ class IncR16Registrer(MicroOp):
 class DecR16Registrer(MicroOp):
     def __init__(self, registrer) -> None:
         self.registrer = registrer
-        super().__init__(1)
     def execute(self, cpu, context):
         number = cpu.registerFile.read(self.registrer)
         result, flags = sub_r16(number, 1, 0)
@@ -177,7 +164,6 @@ class BinaryAluOperationWithImmediate(MicroOp):
         self.imm = imm
         self.alu = alu
         self.set_flags = set_flags
-        super().__init__(0)
 
     def execute(self, cpu, context):
         callback = getAluBinaryOperationCallback(self.alu)
@@ -189,7 +175,6 @@ class UnaryAluOperationOnContext(MicroOp):
     def __init__(self, alu, set_flags=True) -> None:
         self.alu = alu
         self.set_flags = set_flags
-        super().__init__(0)
 
     def execute(self, cpu, context):
         callback = getAluUnaryOperationCallback(self.alu)
@@ -202,7 +187,6 @@ class BinaryAluRegistrerOperation(MicroOp):
         self.register = registrer
         self.alu = alu
         self.set_flags = set_flags
-        super().__init__(0)
 
     def execute(self, cpu, context):
         callback = getAluBinaryOperationCallback(self.alu)

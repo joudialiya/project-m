@@ -46,6 +46,25 @@ def add_r16(a, b, flags):
     flags = update_bit(flags, C, (a + b) > 0xFFFF)
     
     return [result, flags]
+def add_r16_lb(a, b, flags):
+    result = a + b
+    result = force_d8(result)
+
+    flags = update_bit(flags, N, False)
+    flags = update_bit(flags, H, ((a & 0x0F) + (b & 0x0F)) > 0x0F)
+    flags = update_bit(flags, C, (a + b) > 0xFF)
+    
+    return [result, flags]
+def add_r16_hb(a, b, flags):
+    carry = (flags >> C) & 1
+    result = a + b + carry
+    result = force_d8(result)
+
+    flags = update_bit(flags, N, False)
+    flags = update_bit(flags, H, ((a & 0x0F) + (b & 0x0F) + carry) > 0x0F)
+    flags = update_bit(flags, C, (a + b + carry) > 0xFF)
+    
+    return [result, flags]
 def add_sp(a, b, flags):
     result = a + b
     result = force_d16(result)

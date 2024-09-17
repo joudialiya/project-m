@@ -57,4 +57,3 @@ class DummyCatrigdeMemory(Memory):
         return self.cartridge[addr - 0x0000]
     def write(self, addr, value):
         self.cartridge[addr - 0x0000] = force_d8(value)
-        

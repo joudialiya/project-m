@@ -1,7 +1,7 @@
 from base.memory import Memory
 from base.bitwise_alu_operations import set_bit, reset_bit, update_bit
 
-class InteruptContext():
+class InterruptContext():
     VBLANK = 0
     LCD = 1
     TIMER = 2
@@ -17,21 +17,33 @@ class InteruptContext():
         return self.ime
     def setIME(self, state):
         self.ime = state
-    def setEnabling(self, state):
+
+    def setEnablingIME(self, state):
         self.ime_enabling = state
-    def isEnabling(self):
+    def isEnablingIME(self):
         return self.ime_enabling
+    
     def isEnabled(self, type):
         return (self.interrupt_enable >> type) & 1
     def setEnabled(self, type, state):
-        self.interrupt_enable = update_bit(self.interrupt_enable, type, state)
+        self.interrupt_enable = update_bit(
+            self.interrupt_enable,
+            type,
+            state
+        )
+
     def isRequested(self, type):
         return (self.interrupt_flag >> type) & 1
     def setRequested(self, type, state):
-        self.interrupt_enable = update_bit(self.interrupt_enable, type, state)
+        self.interrupt_flag = update_bit(
+            self.interrupt_flag,
+            type,
+            state
+        )
+        # print("{:08b} {:08b}".format(self.interrupt_enable, self.interrupt_flag))
 
 class InteruptEnableRegiter(Memory):
-    def __init__(self, interrupt_context: InteruptContext) -> None:
+    def __init__(self, interrupt_context: InterruptContext) -> None:
         self.context = interrupt_context
         super().__init__()
     def inside(self, addr):
@@ -39,9 +51,10 @@ class InteruptEnableRegiter(Memory):
     def read(self, addr):
         return self.context.interrupt_enable
     def write(self, addr, value):
+        print("IE Write {:08b}".format(value))
         self.context.interrupt_enable = value
 class InteruptFlagRegister(Memory):
-    def __init__(self, interrupt_context: InteruptContext) -> None:
+    def __init__(self, interrupt_context: InterruptContext) -> None:
         self.context = interrupt_context
         super().__init__()
     def inside(self, addr):
@@ -49,4 +62,5 @@ class InteruptFlagRegister(Memory):
     def read(self, addr):
         return self.context.interrupt_flag
     def write(self, addr, value):
+        print("IF Write {:08b}".format(value))
         self.context.interrupt_flag = value
