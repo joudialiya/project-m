@@ -25,11 +25,11 @@ class GlobalMemory(Memory):
         try:
             return self.indexed_spaces[addr].read(addr)
         except Exception as e:
-            # print(e)
+            # print("{:04X} addrs not supported (READ)".format(addr))
             return 0
     def write(self, addr, value):
         try:
             self.indexed_spaces[addr].write(addr, value)
         except Exception as e:
-            print("{:04X} addrs not supported".format(addr))
+            # print("{:04X} addrs not supported (WRITE)".format(addr))
             pass

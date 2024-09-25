@@ -19,7 +19,7 @@ class ExtraCycle(MicroOp):
         return context
 class Halt(MicroOp):
     def execute(self, cpu, context):
-        print("Halted")
+        # print("Halted")
         cpu.isHalted = True
         return context
 class EnableDisableIME(MicroOp):
@@ -29,12 +29,11 @@ class EnableDisableIME(MicroOp):
     def proceed(self, cpu, context):
         return True
     def execute(self, cpu, context):
-        print("IME", self.state)
         if self.state:
             if self.with_delay:
                 cpu.interrupt_context.setEnablingIME(True)
             else:
-                cpu.cpu.interrupt_context.setIME(True)
+                cpu.interrupt_context.setIME(True)
         else:
             cpu.interrupt_context.setIME(False)
         return context
